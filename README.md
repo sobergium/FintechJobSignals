@@ -171,12 +171,6 @@ Built-in: Slack, Discord, Email (via Resend)
 - **Job Seekers** - Get first-mover advantage on new postings
 - **Recruiters** - Track competitor hiring patterns
 - **VCs** - Monitor portfolio company hiring velocity
-- **Researchers** - Analyze hiring trends over time
-
-## Inspired By
-
-- [Slack Scout](https://x.com/SarahChieng) by Sarah Chieng
-- [f5bot](https://f5bot.com)
 
 ## License
 
@@ -184,4 +178,4 @@ MIT
 
 ---
 
-Built by [Emma @ Fika Ventures](https://twitter.com/yourhandle) 💼
+Built by [Emma @ Fika Ventures](https://www.linkedin.com/in/emma-w-42a469182/) 💼

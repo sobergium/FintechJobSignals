@@ -24,7 +24,7 @@ Track job postings across multiple companies and get instant Slack notifications
 3. **Diffs against DB** - Compares to previously seen postings
 4. **Notifies on new** - Sends Slack message for each new role
 
-## Supported ATS Platforms
+## Supported ATS Platforms 
 
 | Platform | Status | URL Pattern |
 |----------|--------|-------------|

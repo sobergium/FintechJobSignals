@@ -10,26 +10,34 @@ import path from "path";
 import { fetchGreenhouseJobs } from "./scrapers/greenhouse";
 import { fetchLeverJobs } from "./scrapers/lever";
 import { fetchAshbyJobs } from "./scrapers/ashby";
+import { fetchBreezyJobs } from "./scrapers/breezy";
+import { fetchBambooJobs } from "./scrapers/bamboohr";
+import { fetchRipplingJobs } from "./scrapers/rippling";
 
 // ============================================================
 // CONFIGURATION - Edit this section!
 // ============================================================
 
 export const COMPANIES: CompanyConfig[] = [
-  // Greenhouse companies
+  // Greenhouse — slug from boards.greenhouse.io/{slug}
   { name: "Anthropic", ats: "greenhouse", slug: "anthropic" },
-  { name: "OpenAI", ats: "greenhouse", slug: "openai" },
-  { name: "Stripe", ats: "greenhouse", slug: "stripe" },
-  { name: "Figma", ats: "greenhouse", slug: "figma" },
-  { name: "Notion", ats: "greenhouse", slug: "notion" },
-  { name: "Vercel", ats: "greenhouse", slug: "vercel" },
-  { name: "Airtable", ats: "greenhouse", slug: "airtable" },
+  { name: "OpenAI",    ats: "greenhouse", slug: "openai" },
+  { name: "Stripe",    ats: "greenhouse", slug: "stripe" },
 
-  // Lever companies
-  { name: "Netflix", ats: "lever", slug: "netflix" },
+  // Lever — slug from jobs.lever.co/{slug}
+  { name: "Netflix",   ats: "lever", slug: "netflix" },
 
-  // Ashby companies
-  { name: "Ramp", ats: "ashby", slug: "ramp" },
+  // Ashby — slug from jobs.ashbyhq.com/{slug}
+  { name: "Ramp",      ats: "ashby", slug: "ramp" },
+
+  // Breezy HR — slug from {slug}.breezy.hr
+  { name: "PathSpot",  ats: "breezy", slug: "pathspot" },
+
+  // BambooHR — slug from {slug}.bamboohr.com
+  { name: "Elementary", ats: "bamboohr", slug: "elementary" },
+
+  // Rippling — slug from ats.rippling.com/{slug}/jobs
+  { name: "Bowery Valuation", ats: "rippling", slug: "bowery-valuation" },
 ];
 
 // Optional: Filter jobs by keywords (leave empty arrays to get all jobs)
@@ -45,7 +53,7 @@ export const FILTERS = {
 
 export interface CompanyConfig {
   name: string;
-  ats: "greenhouse" | "lever" | "ashby";
+  ats: "greenhouse" | "lever" | "ashby" | "breezy" | "bamboohr" | "rippling";
   slug: string;
 }
 
@@ -187,6 +195,9 @@ const SCRAPERS = {
   greenhouse: fetchGreenhouseJobs,
   lever: fetchLeverJobs,
   ashby: fetchAshbyJobs,
+  breezy: fetchBreezyJobs,
+  bamboohr: fetchBambooJobs,
+  rippling: fetchRipplingJobs,
 };
 
 async function scrapeCompany(company: CompanyConfig): Promise<Job[]> {

@@ -28,9 +28,12 @@ Track job postings across multiple companies and get instant Slack notifications
 
 | Platform | Status | URL Pattern |
 |----------|--------|-------------|
-| Greenhouse | ✅ | `boards.greenhouse.io/{company}` |
-| Lever | ✅ | `jobs.lever.co/{company}` |
-| Ashby | ✅ | `jobs.ashbyhq.com/{company}` |
+| Greenhouse | ✅ | `boards.greenhouse.io/{slug}` |
+| Lever | ✅ | `jobs.lever.co/{slug}` |
+| Ashby | ✅ | `jobs.ashbyhq.com/{slug}` |
+| Breezy HR | ✅ | `{slug}.breezy.hr` |
+| BambooHR | ✅ | `{slug}.bamboohr.com` |
+| Rippling | ✅ | `ats.rippling.com/{slug}/jobs` |
 | Workday | 🔜 | varies |
 | LinkedIn | 🔜 | requires auth |
 
@@ -77,11 +80,13 @@ Edit the `COMPANIES` array in `index.ts`:
 
 ```typescript
 export const COMPANIES: CompanyConfig[] = [
-  { name: "Anthropic", ats: "greenhouse", slug: "anthropic" },
-  { name: "OpenAI",    ats: "greenhouse", slug: "openai" },
-  { name: "Stripe",    ats: "greenhouse", slug: "stripe" },
-  { name: "Netflix",   ats: "lever",      slug: "netflix" },
-  { name: "Ramp",      ats: "ashby",      slug: "ramp" },
+  { name: "Anthropic",       ats: "greenhouse", slug: "anthropic" },
+  { name: "Stripe",          ats: "greenhouse", slug: "stripe" },
+  { name: "Netflix",         ats: "lever",      slug: "netflix" },
+  { name: "Ramp",            ats: "ashby",      slug: "ramp" },
+  { name: "PathSpot",        ats: "breezy",     slug: "pathspot" },
+  { name: "Elementary",      ats: "bamboohr",   slug: "elementary" },
+  { name: "Bowery Valuation",ats: "rippling",   slug: "bowery-valuation" },
 ];
 ```
 

@@ -3,3 +3,4 @@ jobs.db
 .env
 *.js
 *.d.ts
+.DS_Store

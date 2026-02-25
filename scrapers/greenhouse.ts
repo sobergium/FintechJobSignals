@@ -6,7 +6,7 @@
  * JSON API: https://boards-api.greenhouse.io/v1/boards/{company}/jobs
  */
 
-import type { CompanyConfig, Job } from "../index.ts";
+import type { CompanyConfig, Job } from "../index";
 
 interface GreenhouseJob {
   id: number;
@@ -30,7 +30,7 @@ export async function fetchGreenhouseJobs(company: CompanyConfig): Promise<Job[]
     const response = await fetch(apiUrl, {
       headers: {
         "Accept": "application/json",
-        "User-Agent": "JobScout/1.0 (github.com/yourrepo/job-scout)",
+        "User-Agent": "JobScout/1.0 (github.com/ewatfika/jobscout)",
       },
     });
 
@@ -42,7 +42,7 @@ export async function fetchGreenhouseJobs(company: CompanyConfig): Promise<Job[]
       throw new Error(`Greenhouse API error: ${response.status}`);
     }
 
-    const data: GreenhouseResponse = await response.json();
+    const data = await response.json() as GreenhouseResponse;
 
     return data.jobs.map((job): Job => ({
       id: `gh-${company.slug}-${job.id}`,

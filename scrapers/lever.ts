@@ -6,7 +6,7 @@
  * JSON API: https://api.lever.co/v0/postings/{company}
  */
 
-import type { CompanyConfig, Job } from "../index.ts";
+import type { CompanyConfig, Job } from "../index";
 
 interface LeverJob {
   id: string;
@@ -27,7 +27,7 @@ export async function fetchLeverJobs(company: CompanyConfig): Promise<Job[]> {
     const response = await fetch(apiUrl, {
       headers: {
         "Accept": "application/json",
-        "User-Agent": "JobScout/1.0 (github.com/yourrepo/job-scout)",
+        "User-Agent": "JobScout/1.0 (github.com/ewatfika/jobscout)",
       },
     });
 
@@ -39,7 +39,7 @@ export async function fetchLeverJobs(company: CompanyConfig): Promise<Job[]> {
       throw new Error(`Lever API error: ${response.status}`);
     }
 
-    const data: LeverJob[] = await response.json();
+    const data = await response.json() as LeverJob[];
 
     return data.map((job): Job => ({
       id: `lever-${company.slug}-${job.id}`,

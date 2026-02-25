@@ -40,7 +40,7 @@ Track job postings across multiple companies and get instant Slack notifications
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/job-scout
+git clone https://github.com/ewatfika/jobscout
 cd job-scout
 
 # Install dependencies

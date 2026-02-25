@@ -6,7 +6,7 @@
  * API: https://jobs.ashbyhq.com/api/non-user-graphql
  */
 
-import type { CompanyConfig, Job } from "../index.ts";
+import type { CompanyConfig, Job } from "../index";
 
 interface AshbyJob {
   id: string;
@@ -55,7 +55,7 @@ export async function fetchAshbyJobs(company: CompanyConfig): Promise<Job[]> {
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "User-Agent": "JobScout/1.0 (github.com/yourrepo/job-scout)",
+        "User-Agent": "JobScout/1.0 (github.com/ewatfika/jobscout)",
       },
       body: JSON.stringify(query),
     });
@@ -64,7 +64,7 @@ export async function fetchAshbyJobs(company: CompanyConfig): Promise<Job[]> {
       throw new Error(`Ashby API error: ${response.status}`);
     }
 
-    const data: AshbyResponse = await response.json();
+    const data = await response.json() as AshbyResponse;
     
     if (!data.data?.jobBoard?.jobPostings) {
       console.warn(`No job postings found for ${company.slug} on Ashby`);

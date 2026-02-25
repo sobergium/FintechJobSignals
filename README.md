@@ -4,7 +4,7 @@ Get notified when companies you care about post new jobs.
 
 Track job postings across multiple companies and get instant Slack notifications when new roles appear. Perfect for job seekers, recruiters, or investors tracking portfolio hiring velocity.
 
-## How It Works
+## How It Works 
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐

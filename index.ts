@@ -1,9 +1,12 @@
 /**
  * Job Scout - Get notified when companies you care about post new jobs
- * 
- * Deploy on Val Town or run locally with Node.js/Deno
+ *
+ * Self-hosted version. Runs on Node.js, scheduled via system cron.
+ * See README.md for setup instructions.
  */
 
+import Database from "better-sqlite3";
+import path from "path";
 import { fetchGreenhouseJobs } from "./scrapers/greenhouse";
 import { fetchLeverJobs } from "./scrapers/lever";
 import { fetchAshbyJobs } from "./scrapers/ashby";
@@ -20,22 +23,20 @@ export const COMPANIES: CompanyConfig[] = [
   { name: "Figma", ats: "greenhouse", slug: "figma" },
   { name: "Notion", ats: "greenhouse", slug: "notion" },
   { name: "Vercel", ats: "greenhouse", slug: "vercel" },
-  
+  { name: "Airtable", ats: "greenhouse", slug: "airtable" },
+
   // Lever companies
   { name: "Netflix", ats: "lever", slug: "netflix" },
-  
+
   // Ashby companies
   { name: "Ramp", ats: "ashby", slug: "ramp" },
 ];
 
-// Optional: Filter jobs by keywords
+// Optional: Filter jobs by keywords (leave empty arrays to get all jobs)
 export const FILTERS = {
-  // Only notify for jobs containing ANY of these keywords (empty = all jobs)
-  keywords: [] as string[],
-  // Exclude jobs containing ANY of these keywords
-  exclude: [] as string[],
-  // Only notify for jobs in these locations (empty = all locations)
-  locations: [] as string[],
+  keywords: [] as string[],   // e.g. ["engineer", "product"]
+  exclude: [] as string[],    // e.g. ["intern", "contractor"]
+  locations: [] as string[],  // e.g. ["San Francisco", "Remote"]
 };
 
 // ============================================================
@@ -59,15 +60,15 @@ export interface Job {
 }
 
 // ============================================================
-// DATABASE (using Val Town SQLite or local SQLite)
+// DATABASE
 // ============================================================
 
-const { sqlite } = await import("https://esm.town/v/std/sqlite");
-const TABLE_NAME = "job_scout_postings";
+const DB_PATH = path.join(process.cwd(), "jobs.db");
+const db = new Database(DB_PATH);
 
-async function initDb(): Promise<void> {
-  await sqlite.execute(`
-    CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+function initDb(): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS jobs (
       id TEXT PRIMARY KEY,
       company TEXT NOT NULL,
       title TEXT NOT NULL,
@@ -81,31 +82,21 @@ async function initDb(): Promise<void> {
   `);
 }
 
-async function isJobKnown(jobId: string): Promise<boolean> {
-  const result = await sqlite.execute({
-    sql: `SELECT 1 FROM ${TABLE_NAME} WHERE id = :id LIMIT 1`,
-    args: { id: jobId },
-  });
-  return result.rows.length > 0;
+function isJobKnown(jobId: string): boolean {
+  const row = db.prepare("SELECT 1 FROM jobs WHERE id = ?").get(jobId);
+  return row !== undefined;
 }
 
-async function saveJob(job: Job): Promise<void> {
+function saveJob(job: Job): void {
   const now = new Date().toISOString();
-  await sqlite.execute({
-    sql: `INSERT INTO ${TABLE_NAME} (id, company, title, location, url, department, first_seen, last_seen)
-          VALUES (:id, :company, :title, :location, :url, :department, :first_seen, :last_seen)
-          ON CONFLICT(id) DO UPDATE SET last_seen = :last_seen, is_active = 1`,
-    args: {
-      id: job.id,
-      company: job.company,
-      title: job.title,
-      location: job.location || "",
-      url: job.url,
-      department: job.department || "",
-      first_seen: now,
-      last_seen: now,
-    },
-  });
+  db.prepare(`
+    INSERT INTO jobs (id, company, title, location, url, department, first_seen, last_seen)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET last_seen = ?, is_active = 1
+  `).run(
+    job.id, job.company, job.title, job.location || "",
+    job.url, job.department || "", now, now, now
+  );
 }
 
 // ============================================================
@@ -113,19 +104,21 @@ async function saveJob(job: Job): Promise<void> {
 // ============================================================
 
 function formatSlackMessage(job: Job): string {
-  return `🆕 *New Job Posted*
-
-*Company:* ${job.company}
-*Role:* ${job.title}
-*Location:* ${job.location || "Not specified"}
-${job.department ? `*Department:* ${job.department}\n` : ""}*Link:* ${job.url}`;
+  return [
+    `🆕 *New Job Posted*`,
+    ``,
+    `*Company:* ${job.company}`,
+    `*Role:* ${job.title}`,
+    `*Location:* ${job.location || "Not specified"}`,
+    job.department ? `*Department:* ${job.department}` : null,
+    `*Link:* ${job.url}`,
+  ].filter(Boolean).join("\n");
 }
 
 async function sendSlackNotification(job: Job): Promise<void> {
-  const webhookUrl = Deno.env.get("SLACK_WEBHOOK_URL");
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
   if (!webhookUrl) {
-    console.log("No SLACK_WEBHOOK_URL set, skipping notification");
-    console.log("Would have sent:", formatSlackMessage(job));
+    console.log("  [no webhook] Would notify:", job.title, "@", job.company);
     return;
   }
 
@@ -162,38 +155,32 @@ async function sendSlackNotification(job: Job): Promise<void> {
 // ============================================================
 
 function matchesFilters(job: Job): boolean {
-  const titleLower = job.title.toLowerCase();
-  const locationLower = (job.location || "").toLowerCase();
+  const title = job.title.toLowerCase();
+  const location = (job.location || "").toLowerCase();
 
-  // Check exclusions first
   if (FILTERS.exclude.length > 0) {
-    const hasExcluded = FILTERS.exclude.some(kw => 
-      titleLower.includes(kw.toLowerCase())
-    );
-    if (hasExcluded) return false;
+    if (FILTERS.exclude.some((kw) => title.includes(kw.toLowerCase()))) {
+      return false;
+    }
   }
 
-  // Check keywords
   if (FILTERS.keywords.length > 0) {
-    const hasKeyword = FILTERS.keywords.some(kw =>
-      titleLower.includes(kw.toLowerCase())
-    );
-    if (!hasKeyword) return false;
+    if (!FILTERS.keywords.some((kw) => title.includes(kw.toLowerCase()))) {
+      return false;
+    }
   }
 
-  // Check locations
   if (FILTERS.locations.length > 0) {
-    const hasLocation = FILTERS.locations.some(loc =>
-      locationLower.includes(loc.toLowerCase())
-    );
-    if (!hasLocation) return false;
+    if (!FILTERS.locations.some((loc) => location.includes(loc.toLowerCase()))) {
+      return false;
+    }
   }
 
   return true;
 }
 
 // ============================================================
-// MAIN SCRAPER LOGIC
+// SCRAPER LOGIC
 // ============================================================
 
 const SCRAPERS = {
@@ -205,79 +192,60 @@ const SCRAPERS = {
 async function scrapeCompany(company: CompanyConfig): Promise<Job[]> {
   const scraper = SCRAPERS[company.ats];
   if (!scraper) {
-    console.error(`No scraper for ATS: ${company.ats}`);
+    console.error(`  No scraper for ATS: ${company.ats}`);
     return [];
   }
-
   try {
     const jobs = await scraper(company);
-    console.log(`Found ${jobs.length} jobs at ${company.name}`);
+    console.log(`  ${company.name}: ${jobs.length} jobs found`);
     return jobs;
   } catch (error) {
-    console.error(`Error scraping ${company.name}:`, error);
+    console.error(`  Error scraping ${company.name}:`, error);
     return [];
   }
 }
 
 async function processJobs(jobs: Job[]): Promise<number> {
-  let newJobCount = 0;
-
+  let newCount = 0;
   for (const job of jobs) {
-    // Skip if doesn't match filters
     if (!matchesFilters(job)) continue;
+    if (isJobKnown(job.id)) continue;
 
-    // Check if we've seen this job before
-    const isKnown = await isJobKnown(job.id);
-    
-    if (!isKnown) {
-      // New job! Save and notify
-      await saveJob(job);
-      await sendSlackNotification(job);
-      newJobCount++;
-      
-      // Small delay to avoid rate limits
-      await new Promise(r => setTimeout(r, 500));
-    }
+    saveJob(job);
+    await sendSlackNotification(job);
+    newCount++;
+
+    // Small delay to avoid rate limits
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return newCount;
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+
+async function run(): Promise<void> {
+  console.log(`\n🔍 Job Scout running at ${new Date().toISOString()}`);
+  console.log(`   Tracking ${COMPANIES.length} companies\n`);
+
+  let totalNew = 0;
+
+  for (const company of COMPANIES) {
+    const jobs = await scrapeCompany(company);
+    const newCount = await processJobs(jobs);
+    totalNew += newCount;
+
+    // Delay between companies
+    await new Promise((r) => setTimeout(r, 1000));
   }
 
-  return newJobCount;
+  console.log(`\n✅ Done! ${totalNew} new job(s) found.\n`);
 }
 
 // ============================================================
 // ENTRY POINT
 // ============================================================
 
-export default async function main(interval?: Interval): Promise<void> {
-  console.log(`Job Scout starting at ${new Date().toISOString()}`);
-  console.log(`Tracking ${COMPANIES.length} companies`);
-
-  try {
-    // Initialize database
-    await initDb();
-
-    // Scrape all companies
-    let totalJobs = 0;
-    let totalNew = 0;
-
-    for (const company of COMPANIES) {
-      const jobs = await scrapeCompany(company);
-      totalJobs += jobs.length;
-
-      const newCount = await processJobs(jobs);
-      totalNew += newCount;
-
-      // Delay between companies to be respectful
-      await new Promise(r => setTimeout(r, 1000));
-    }
-
-    console.log(`Complete! Found ${totalJobs} total jobs, ${totalNew} new`);
-  } catch (error) {
-    console.error("Job Scout error:", error);
-    throw error;
-  }
-}
-
-// For local testing
-if (import.meta.main) {
-  await main();
-}
+initDb();
+run().catch(console.error);

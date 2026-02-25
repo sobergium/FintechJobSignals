@@ -2,29 +2,29 @@
 
 Get notified when companies you care about post new jobs.
 
-Track job postings across multiple companies and get instant Slack notifications when new roles appear. Perfect for job seekers, recruiters, investors tracking portfolio hiring velocity, or anyone doing competitive intel.
+Track job postings across multiple companies and get instant Slack notifications when new roles appear. Perfect for job seekers, recruiters, or investors tracking portfolio hiring velocity.
 
 ## How It Works
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Cron Job      │────▶│   Job Scrapers   │────▶│   SQLite DB     │
+│   cron job      │────▶│   Job Scrapers   │────▶│   SQLite DB     │
 │   (scheduled)   │     │   (per ATS)      │     │   (seen jobs)   │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
                                                           │
                                                           ▼
                                                  ┌─────────────────┐
                                                  │  Slack Webhook  │
-                                                 │  (new jobs)     │
+                                                 │  (new jobs only)│
                                                  └─────────────────┘
 ```
 
-1. **Scheduled trigger** - Runs every hour (configurable)
-2. **Scrapes job boards** - Checks each company's careers page
-3. **Diffs against DB** - Compares to previously seen postings
-4. **Notifies on new** - Sends Slack message for each new role
+1. **Scheduled trigger** — runs every hour via system cron (configurable)
+2. **Scrapes job boards** — hits each company's ATS API
+3. **Diffs against DB** — compares to previously seen postings in SQLite
+4. **Notifies on new** — sends a Slack message for each new role
 
-## Supported ATS Platforms 
+## Supported ATS Platforms
 
 | Platform | Status | URL Pattern |
 |----------|--------|-------------|
@@ -36,20 +36,11 @@ Track job postings across multiple companies and get instant Slack notifications
 
 ## Quick Start
 
-### Option 1: Val Town (Recommended)
-
-1. Fork this Val: [job-scout on Val Town](#)
-2. Set environment variables:
-   - `SLACK_WEBHOOK_URL` - [Create webhook](https://api.slack.com/messaging/webhooks)
-   - `BROWSERBASE_API_KEY` - [Get free key](https://browserbase.com)
-3. Edit `COMPANIES` array with your targets
-4. Run!
-
-### Option 2: Self-Hosted
+**Requirements:** Node.js 18+
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/job-scout
+git clone https://github.com/YOUR_USERNAME/job-scout
 cd job-scout
 
 # Install dependencies
@@ -57,29 +48,47 @@ npm install
 
 # Set up environment
 cp .env.example .env
-# Edit .env with your credentials
+# Edit .env and add your SLACK_WEBHOOK_URL
 
-# Run once
-npm run start
-
-# Or schedule with cron
-npm run schedule
+# Run once to test
+npm start
 ```
+
+To get a Slack webhook URL: [Create an incoming webhook](https://api.slack.com/messaging/webhooks)
+
+### Schedule with Cron
+
+Job Scout is designed to be triggered by your system's cron scheduler. Each run checks for new jobs and exits.
+
+```bash
+# Open your crontab
+crontab -e
+
+# Add one of these lines:
+0 * * * * cd /path/to/job-scout && npm start >> /var/log/job-scout.log 2>&1   # every hour
+0 9 * * * cd /path/to/job-scout && npm start >> /var/log/job-scout.log 2>&1   # every day at 9am
+```
+
+Use [crontab.guru](https://crontab.guru) to build a custom schedule.
 
 ## Configuration
 
-Edit `config.ts` to add companies you want to track:
+Edit the `COMPANIES` array in `index.ts`:
 
 ```typescript
-export const COMPANIES = [
+export const COMPANIES: CompanyConfig[] = [
   { name: "Anthropic", ats: "greenhouse", slug: "anthropic" },
-  { name: "OpenAI", ats: "greenhouse", slug: "openai" },
-  { name: "Stripe", ats: "greenhouse", slug: "stripe" },
-  { name: "Figma", ats: "greenhouse", slug: "figma" },
-  { name: "Notion", ats: "lever", slug: "notionhq" },
-  { name: "Ramp", ats: "ashby", slug: "ramp" },
+  { name: "OpenAI",    ats: "greenhouse", slug: "openai" },
+  { name: "Stripe",    ats: "greenhouse", slug: "stripe" },
+  { name: "Netflix",   ats: "lever",      slug: "netflix" },
+  { name: "Ramp",      ats: "ashby",      slug: "ramp" },
 ];
 ```
+
+To find a company's slug, look at their careers page URL:
+- `boards.greenhouse.io/anthropic` → slug is `anthropic`
+- `jobs.lever.co/netflix` → slug is `netflix`
+- `jobs.ashbyhq.com/ramp` → slug is `ramp`
 
 ### Filter by Keywords (Optional)
 
@@ -87,11 +96,13 @@ Only get notified for roles matching specific keywords:
 
 ```typescript
 export const FILTERS = {
-  keywords: ["engineer", "product", "design"], // any of these
-  exclude: ["intern", "contractor"],            // none of these
-  locations: ["San Francisco", "Remote"],       // any of these
+  keywords: ["engineer", "product"],     // must match one of these
+  exclude:  ["intern", "contractor"],    // must not match any of these
+  locations: ["San Francisco", "Remote"], // must match one of these
 };
 ```
+
+Leave any array empty to skip that filter.
 
 ## Notification Format
 
@@ -101,76 +112,49 @@ export const FILTERS = {
 Company: Anthropic
 Role: Senior Software Engineer
 Location: San Francisco, CA
+Department: Engineering
 Link: https://boards.greenhouse.io/anthropic/jobs/123456
-
-Posted: Dec 16, 2024
 ```
 
 ## Architecture
 
 ### Scrapers
 
-Each ATS has its own scraper module since they structure data differently:
+Each ATS has its own scraper module since they all structure data differently:
 
-- **Greenhouse** - Has a public JSON API (`/jobs.json`)
-- **Lever** - Also has JSON endpoint
-- **Ashby** - JSON API available
-- **Custom careers pages** - Use Browserbase for JS-rendered pages
+- **Greenhouse** — public JSON API at `/v1/boards/{slug}/jobs`
+- **Lever** — public JSON API at `/v0/postings/{slug}`
+- **Ashby** — GraphQL API at `jobs.ashbyhq.com/api/non-user-graphql`
 
-### Database Schema
+### Database
+
+SQLite via `better-sqlite3`. A `jobs.db` file is created locally on first run.
 
 ```sql
 CREATE TABLE jobs (
-  id TEXT PRIMARY KEY,           -- unique job ID from ATS
+  id TEXT PRIMARY KEY,        -- unique job ID (ats-slug-jobid)
   company TEXT NOT NULL,
   title TEXT NOT NULL,
   location TEXT,
   url TEXT NOT NULL,
-  first_seen TEXT NOT NULL,      -- ISO timestamp
-  last_seen TEXT NOT NULL,       -- ISO timestamp  
-  is_active INTEGER DEFAULT 1    -- track when jobs are removed
+  department TEXT,
+  first_seen TEXT NOT NULL,   -- ISO timestamp
+  last_seen TEXT NOT NULL,    -- ISO timestamp
+  is_active INTEGER DEFAULT 1
 );
 ```
 
-### Rate Limiting
+### Extending
 
-Be respectful:
-- Default: 1 request per company per hour
-- Randomized delays between requests
-- Respects robots.txt
+**Add a new ATS:** create `scrapers/{ats}.ts`, implement the `Scraper` interface, and register it in `index.ts`.
 
-## Extending
-
-### Add a New ATS
-
-1. Create scraper in `scrapers/{ats-name}.ts`
-2. Implement the `Scraper` interface:
-
-```typescript
-interface Scraper {
-  fetchJobs(company: CompanyConfig): Promise<Job[]>;
-}
-```
-
-3. Register in `scrapers/index.ts`
-
-### Add New Notification Channels
-
-Implement the `Notifier` interface:
-
-```typescript
-interface Notifier {
-  send(job: Job): Promise<void>;
-}
-```
-
-Built-in: Slack, Discord, Email (via Resend)
+**Add new notification channels:** the `sendSlackNotification` function is easy to extend — Discord, email via Resend, or anything else with a webhook.
 
 ## Use Cases
 
-- **Job Seekers** - Get first-mover advantage on new postings
-- **Recruiters** - Track competitor hiring patterns
-- **VCs** - Monitor portfolio company hiring velocity
+- **Job seekers** — get first-mover advantage on new postings
+- **Recruiters** — track competitor hiring patterns
+- **VCs** — monitor portfolio company hiring velocity
 
 ## License
 

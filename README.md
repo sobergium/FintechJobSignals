@@ -1,32 +1,30 @@
 # Job Scout 🔍
 
-Get a Slack ping every time a company you care about posts a new job.
+**Get a Slack notification every time a company posts a new job. Automatically.**
 
-Built for VCs who want to track portfolio hiring velocity without logging into 20 different career pages.
+You pick the companies. Job Scout watches their job boards and pings your Slack channel the moment something new goes live. No more manually refreshing career pages.
 
-![Slack notification showing a new job posted at BuildOps](https://placehold.co/600x160/1a1d21/white?text=🆕+New+Job+Posted+%7C+BuildOps+%7C+Account+Executive)
+```
+You pick companies  →  Job Scout watches their job boards  →  New role appears  →  Slack ping
+```
 
----
+> Built for VC platform teams to monitor portfolio hiring velocity, but works for anyone tracking jobs at specific companies.
 
-## What it does
-
-You give it a list of companies. It checks their job boards every morning and sends you a Slack message for every new role — with a direct link to apply.
-
-That's it.
+**Setup takes ~15 minutes. No coding experience needed.**
 
 ---
 
 ## What you'll need
 
 - A Mac or Linux computer (Windows works too with some tweaks)
-- [Node.js](https://nodejs.org/en/download) installed (free, takes 2 min — download the "LTS" version)
+- [Node.js](https://nodejs.org/en/download) installed (free, takes 2 min - download the "LTS" version)
 - A Slack workspace where you can create a channel for job alerts
 
 ---
 
 ## Setup (15 min)
 
-### Step 1 — Get the code
+### Step 1: Get the code
 
 Download this repo by clicking the green **Code** button above → **Download ZIP**, then unzip it somewhere on your computer (e.g. your Desktop).
 
@@ -36,14 +34,14 @@ git clone https://github.com/ewatfika/jobscout
 cd jobscout
 ```
 
-### Step 2 — Install dependencies
+### Step 2: Install dependencies
 
 Open Terminal, navigate to the folder, and run:
 ```bash
 npm install
 ```
 
-### Step 3 — Create your Slack webhook
+### Step 3: Create your Slack webhook
 
 A webhook is just a URL that lets Job Scout post messages to your Slack channel.
 
@@ -53,7 +51,7 @@ A webhook is just a URL that lets Job Scout post messages to your Slack channel.
 4. Click **Add New Webhook to Workspace** → pick the channel you want alerts in
 5. Copy the webhook URL (it looks like `https://hooks.slack.com/services/...`)
 
-### Step 4 — Add your webhook
+### Step 4: Add your webhook
 
 Create a file called `.env` in the job-scout folder and add this line (swap in your actual URL):
 
@@ -61,7 +59,7 @@ Create a file called `.env` in the job-scout folder and add this line (swap in y
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 ```
 
-### Step 5 — Add your companies
+### Step 5: Add your companies
 
 Open `index.ts` in any text editor and edit the `COMPANIES` list:
 
@@ -85,15 +83,15 @@ export const COMPANIES: CompanyConfig[] = [
 | `acme.bamboohr.com/careers` | bamboohr | `acme` |
 | `ats.rippling.com/acme/jobs` | rippling | `acme` |
 
-Not sure which platform a company uses? Just look at their careers page URL — the platform name is usually right there.
+Not sure which platform a company uses? Just look at their careers page URL - the platform name is usually right there.
 
-### Step 6 — Test it
+### Step 6: Test it
 
 ```bash
 npm start
 ```
 
-You should see it check each company and — if anything is new — ping your Slack channel. On first run it'll send notifications for all current openings, then only notify you on net-new postings going forward.
+You should see it check each company and ping your Slack channel for anything new. On first run it'll send notifications for all current openings, then only notify you on net-new postings going forward.
 
 ---
 
@@ -111,7 +109,7 @@ Replace `/path/to/jobscout` with wherever you saved the folder (e.g. `/Users/you
 
 This runs it every day at 9am. To change the time, use [crontab.guru](https://crontab.guru) to build a custom schedule.
 
-> **Note:** Your computer needs to be on and awake at 9am for it to fire. If you want it running 24/7 regardless, you can deploy it to a cheap server — [Railway](https://railway.app) and [Render](https://render.com) both have free tiers.
+> **Note:** Your computer needs to be on and awake at 9am for it to fire. If you want it running 24/7, you can deploy it to a cheap server - [Railway](https://railway.app) and [Render](https://render.com) both have free tiers.
 
 ---
 
@@ -164,7 +162,7 @@ Link: https://boards.greenhouse.io/anthropic/jobs/123456
 
 ## License
 
-MIT — free to use, modify, and share.
+MIT
 
 ---
 

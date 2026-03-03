@@ -1,115 +1,152 @@
 # Job Scout 🔍
 
-Get notified when companies you care about post new jobs.
+Get a Slack ping every time a company you care about posts a new job.
 
-Track job postings across multiple companies and get instant Slack notifications when new roles appear. Perfect for job seekers, recruiters, or investors tracking portfolio hiring velocity.
+Built for VCs who want to track portfolio hiring velocity without logging into 20 different career pages.
 
-## How It Works
+![Slack notification showing a new job posted at BuildOps](https://placehold.co/600x160/1a1d21/white?text=🆕+New+Job+Posted+%7C+BuildOps+%7C+Account+Executive)
 
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   cron job      │────▶│   Job Scrapers   │────▶│   SQLite DB     │
-│   (scheduled)   │     │   (per ATS)      │     │   (seen jobs)   │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-                                                          │
-                                                          ▼
-                                                 ┌─────────────────┐
-                                                 │  Slack Webhook  │
-                                                 │  (new jobs only)│
-                                                 └─────────────────┘
-```
+---
 
-1. **Scheduled trigger** — runs every hour via system cron (configurable)
-2. **Scrapes job boards** — hits each company's ATS API
-3. **Diffs against DB** — compares to previously seen postings in SQLite
-4. **Notifies on new** — sends a Slack message for each new role
+## What it does
 
-## Supported ATS Platforms
+You give it a list of companies. It checks their job boards every morning and sends you a Slack message for every new role — with a direct link to apply.
 
-| Platform | Status | URL Pattern |
-|----------|--------|-------------|
-| Greenhouse | ✅ | `boards.greenhouse.io/{slug}` |
-| Lever | ✅ | `jobs.lever.co/{slug}` |
-| Ashby | ✅ | `jobs.ashbyhq.com/{slug}` |
-| Breezy HR | ✅ | `{slug}.breezy.hr` |
-| BambooHR | ✅ | `{slug}.bamboohr.com` |
-| Rippling | ✅ | `ats.rippling.com/{slug}/jobs` |
-| Workday | 🔜 | varies |
-| LinkedIn | 🔜 | requires auth |
+That's it.
 
-## Quick Start
+---
 
-**Requirements:** Node.js 18+
+## What you'll need
 
+- A Mac or Linux computer (Windows works too with some tweaks)
+- [Node.js](https://nodejs.org/en/download) installed (free, takes 2 min — download the "LTS" version)
+- A Slack workspace where you can create a channel for job alerts
+
+---
+
+## Setup (15 min)
+
+### Step 1 — Get the code
+
+Download this repo by clicking the green **Code** button above → **Download ZIP**, then unzip it somewhere on your computer (e.g. your Desktop).
+
+Or if you're comfortable with Terminal:
 ```bash
-# Clone the repo
 git clone https://github.com/ewatfika/jobscout
-cd job-scout
-
-# Install dependencies
-npm install
-
-# Set up environment
-cp .env.example .env
-# Edit .env and add your SLACK_WEBHOOK_URL
-
-# Run once to test
-npm start
+cd jobscout
 ```
 
-To get a Slack webhook URL: [Create an incoming webhook](https://api.slack.com/messaging/webhooks)
+### Step 2 — Install dependencies
 
-### Schedule with Cron
-
-Job Scout is designed to be triggered by your system's cron scheduler. Each run checks for new jobs and exits.
-
+Open Terminal, navigate to the folder, and run:
 ```bash
-# Open your crontab
-crontab -e
-
-# Add one of these lines:
-0 * * * * cd /path/to/job-scout && npm start >> /var/log/job-scout.log 2>&1   # every hour
-0 9 * * * cd /path/to/job-scout && npm start >> /var/log/job-scout.log 2>&1   # every day at 9am
+npm install
 ```
 
-Use [crontab.guru](https://crontab.guru) to build a custom schedule.
+### Step 3 — Create your Slack webhook
 
-## Configuration
+A webhook is just a URL that lets Job Scout post messages to your Slack channel.
 
-Edit the `COMPANIES` array in `index.ts`:
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) and click **Create New App** → **From scratch**
+2. Name it "Job Scout", pick your workspace
+3. Click **Incoming Webhooks** → toggle it **On**
+4. Click **Add New Webhook to Workspace** → pick the channel you want alerts in
+5. Copy the webhook URL (it looks like `https://hooks.slack.com/services/...`)
+
+### Step 4 — Add your webhook
+
+Create a file called `.env` in the job-scout folder and add this line (swap in your actual URL):
+
+```
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
+### Step 5 — Add your companies
+
+Open `index.ts` in any text editor and edit the `COMPANIES` list:
 
 ```typescript
 export const COMPANIES: CompanyConfig[] = [
-  { name: "Anthropic",       ats: "greenhouse", slug: "anthropic" },
-  { name: "Stripe",          ats: "greenhouse", slug: "stripe" },
-  { name: "Netflix",         ats: "lever",      slug: "netflix" },
-  { name: "Ramp",            ats: "ashby",      slug: "ramp" },
-  { name: "PathSpot",        ats: "breezy",     slug: "pathspot" },
-  { name: "Elementary",      ats: "bamboohr",   slug: "elementary" },
-  { name: "Bowery Valuation",ats: "rippling",   slug: "bowery-valuation" },
+  { name: "Anthropic", ats: "greenhouse", slug: "anthropic" },
+  { name: "Stripe",    ats: "greenhouse", slug: "stripe" },
+  { name: "Netflix",   ats: "lever",      slug: "netflix" },
+  { name: "Ramp",      ats: "ashby",      slug: "ramp" },
 ];
 ```
 
-To find a company's slug, look at their careers page URL:
-- `boards.greenhouse.io/anthropic` → slug is `anthropic`
-- `jobs.lever.co/netflix` → slug is `netflix`
-- `jobs.ashbyhq.com/ramp` → slug is `ramp`
+**Finding a company's slug:** look at their careers page URL and grab the last part:
 
-### Filter by Keywords (Optional)
+| Careers page URL | Platform | Slug |
+|---|---|---|
+| `boards.greenhouse.io/anthropic` | greenhouse | `anthropic` |
+| `jobs.lever.co/netflix` | lever | `netflix` |
+| `jobs.ashbyhq.com/ramp` | ashby | `ramp` |
+| `pathspot.breezy.hr` | breezy | `pathspot` |
+| `acme.bamboohr.com/careers` | bamboohr | `acme` |
+| `ats.rippling.com/acme/jobs` | rippling | `acme` |
 
-Only get notified for roles matching specific keywords:
+Not sure which platform a company uses? Just look at their careers page URL — the platform name is usually right there.
+
+### Step 6 — Test it
+
+```bash
+npm start
+```
+
+You should see it check each company and — if anything is new — ping your Slack channel. On first run it'll send notifications for all current openings, then only notify you on net-new postings going forward.
+
+---
+
+## Run it automatically every morning
+
+You want this to run on its own so you don't have to remember to trigger it.
+
+**On Mac/Linux**, open Terminal and run `crontab -e`, then add this line:
+
+```
+0 9 * * * cd /path/to/jobscout && npm start >> /tmp/jobscout.log 2>&1
+```
+
+Replace `/path/to/jobscout` with wherever you saved the folder (e.g. `/Users/yourname/Desktop/jobscout`).
+
+This runs it every day at 9am. To change the time, use [crontab.guru](https://crontab.guru) to build a custom schedule.
+
+> **Note:** Your computer needs to be on and awake at 9am for it to fire. If you want it running 24/7 regardless, you can deploy it to a cheap server — [Railway](https://railway.app) and [Render](https://render.com) both have free tiers.
+
+---
+
+## Supported job board platforms
+
+| Platform | Works? |
+|---|---|
+| Greenhouse | ✅ |
+| Lever | ✅ |
+| Ashby | ✅ |
+| Breezy HR | ✅ |
+| BambooHR | ✅ |
+| Rippling | ✅ |
+| Workday | 🔜 |
+| LinkedIn | 🔜 |
+
+---
+
+## Optional: filter by keyword or location
+
+Only want to hear about engineering roles? Or only remote jobs? Edit the `FILTERS` section in `index.ts`:
 
 ```typescript
 export const FILTERS = {
-  keywords: ["engineer", "product"],     // must match one of these
-  exclude:  ["intern", "contractor"],    // must not match any of these
-  locations: ["San Francisco", "Remote"], // must match one of these
+  keywords: ["engineer", "product"],      // only notify for these roles
+  exclude:  ["intern", "contractor"],     // never notify for these
+  locations: ["Remote", "New York"],      // only these locations
 };
 ```
 
-Leave any array empty to skip that filter.
+Leave any list empty (`[]`) to skip that filter.
 
-## Notification Format
+---
+
+## What the Slack notification looks like
 
 ```
 🆕 New Job Posted
@@ -119,51 +156,15 @@ Role: Senior Software Engineer
 Location: San Francisco, CA
 Department: Engineering
 Link: https://boards.greenhouse.io/anthropic/jobs/123456
+
+[ View Job ]  ← clickable button
 ```
 
-## Architecture
-
-### Scrapers
-
-Each ATS has its own scraper module since they all structure data differently:
-
-- **Greenhouse** — public JSON API at `/v1/boards/{slug}/jobs`
-- **Lever** — public JSON API at `/v0/postings/{slug}`
-- **Ashby** — GraphQL API at `jobs.ashbyhq.com/api/non-user-graphql`
-
-### Database
-
-SQLite via `better-sqlite3`. A `jobs.db` file is created locally on first run.
-
-```sql
-CREATE TABLE jobs (
-  id TEXT PRIMARY KEY,        -- unique job ID (ats-slug-jobid)
-  company TEXT NOT NULL,
-  title TEXT NOT NULL,
-  location TEXT,
-  url TEXT NOT NULL,
-  department TEXT,
-  first_seen TEXT NOT NULL,   -- ISO timestamp
-  last_seen TEXT NOT NULL,    -- ISO timestamp
-  is_active INTEGER DEFAULT 1
-);
-```
-
-### Extending
-
-**Add a new ATS:** create `scrapers/{ats}.ts`, implement the `Scraper` interface, and register it in `index.ts`.
-
-**Add new notification channels:** the `sendSlackNotification` function is easy to extend — Discord, email via Resend, or anything else with a webhook.
-
-## Use Cases
-
-- **Job seekers** — get first-mover advantage on new postings
-- **Recruiters** — track competitor hiring patterns
-- **VCs** — monitor portfolio company hiring velocity
+---
 
 ## License
 
-MIT
+MIT — free to use, modify, and share.
 
 ---
 
